@@ -3,17 +3,26 @@ database = [[0,2,3],[1,2,4],[0,1,2,4],[1,4]]
 sup_min = 0
 sup_min_freq = 0
 
-def db_to_bin(table):
-    # here, table is list of lists. e.g. database 
-    return [sum(1 << i for i in sub_list) for sub_list in table]
+def db_to_bin(db):
+    # here, table is list of lists. e.g. database = [[1,2,3],[0,1,3]]
+    # 중복된 원소가 없으니 OR 연산이 아니라 SUM으로 퉁치기 가능.
+    # 각 원소 나타내기 1 << i for i.
+    return [sum(1 << i for i in sub_list) for sub_list in db]
+    # e.g. return [14,13]
+def bilist_to_set(c_k):
+    # here, c_k is the set data of all bitmasked candidates.
+    # e.g. c_2 = {18, 20, 5, 6} which equals [[1, 4], [2, 4], [0, 2], [1, 2]] for ppt slide example.
+    return [{i for i in range(c.bit_length()) if c & (1 << i)} for c in c_k]
 
-def bin_to_db(bin_table):
-    return [[i for i in range(mask.bit_length()) if mask & (1 << i)] for mask in bin_table]
+def bi_to_biset(bitmask):
+    # bitmask는 int, 즉 bitmask 형태로 나타낸 set. e.g. [2,16]일 경우 18.
+    # binary value 리스트로 반환. e.g. 18 -> [2,16]
+    return {bitmask & (1 << i) for i in range(bitmask.bit_length()) if bitmask & (1 << i)}
 
-def  make_candidates(l_k,k):
+def  make_candidates(l_k_with_sup,k):
     # bitmask 형태로 나타나있는 l_k에서, AND 연산, 즉 set끼리의 union 된 combination들 생성
     # set으로 정의해서 중복될 수 있는 combo 제거
-    possible_next_candi = {a | b for a,b in combinations(l_k,2)}
+    possible_next_candi = {a | b for a,b in combinations(l_k_with_sup,2)}
     # 그 중 진짜 candidate들은, 길이가 k+1 인 것들.
     ###### 아니 근데 .bit_count() 써도 됨? ######
     next_candi =[x for x in possible_next_candi if x.bit_count() == (k+1)]
@@ -24,7 +33,7 @@ def  make_candidates(l_k,k):
     # next_candi의 list = x들 중에서,
     # l_k에 x^(1<<i), 즉 길이가 k-1인 모든 subset에 있는가를 검사. [if x & (1<<i)로 i번째 bit가 1임을 체크.]
     # 이 검사를 통과한 모든 itemset을 list로 return.
-    return [x for x in next_candi if (all(x^(1 << i) in l_k for i in range(x.bit_length()) if x & (1 << i)))]
+    return [x for x in next_candi if (all(x^(1 << i) in l_k_with_sup for i in range(x.bit_length()) if x & (1 << i)))]
 
 # C_k -> L_K 함수 구현 [pruning]
 def pruning(c_k):
@@ -34,33 +43,59 @@ def pruning(c_k):
     # for each candidate in c_l, find their sup's.
     c_k_sup = [sum(1 for trans in database if (trans & candi) == candi) for candi in c_k]
     # pruning them with database and found sup.
-    return {candi for candi, sup in zip(c_k, c_k_sup) if sup >= sup_min_freq} , [sup for sup in c_k_sup if sup >= sup_min_freq]
+    return {candi : sup for candi, sup in zip(c_k, c_k_sup) if sup >= sup_min_freq}
 
 
-def confidence(l_k, l_k_sup):
-    
-    return
+def all_association_rules(l_k_with_sup):
+    asso = []
+    for fp,fp_sup in l_k_with_sup.items():
+        # bin_values 는 bitmasked value(합)를 binary values(리스트)로 분리. e.g. 18 -> [2,16]
+        bin_values = bi_to_biset(fp)
+        # combo는 하나의 frequent pattern에서 나올 수 있는 모든 조합의 절반
+        # e.g. 21 -> 1+4+16 이니 combo for 21 = [{1,4,16},{5,17,20}]
+        # set의 개념으로 봤을 때, combo for 21 = [[{0},{2},{4}],[{0,2},{0,4},{2,4}]]
+        combo_half = [[sum(bin_value) for bin_value in combinations(bin_values,i)] for i in range(1,(len(bin_values)//2)+1)]
+        # set 에서 - 연산을 bitmask로 구현하려면
+        # e.g. 1111 - 1110 =  0001 -> 15 - 14 = 1
+        # 즉, A ^ B = A - B
+        # [우리는 A가 B를 포함한다는 사실을 알고 있기에 XOR로 연산해줘도 됨.]
+        combo_rest = [[itemset ^ fp for itemset in combo] for combo in combo_half]
+        # bi_to_set 함수를 통해서 bitmask 형태 -> set 
+        # 현재 k 길이를 가진 frequent pattern들에 대해서 각 fp 마다 모든 combo를 생성 중.
+        # item을 총 t[up to k//2] 개 를 가지는 combo들을 combo_half에 저장,k-t개를 가지는 combo들을 combo_rest에 저장.
+        # 변환시킨 후 합쳐주기.
+        # 이제 계산 끝났고, output으로 내보내야함. bitmask 해제 -> bilist_to_set 함수 재활용.
+        asso.append([[bilist_to_set([itemset, asso_itemset]), fp_sup]
+                    for combos_len_t,combos_len_k_t in zip(combo_half,combo_rest) 
+                    for itemset, asso_itemset in zip(combos_len_t,combos_len_k_t) 
+                    ])
+        # print(bilist_to_set([fp]))
+        # print(combo_half)
+        # print(combo_rest)
+        #print(bin_to_set(combo) for combo in combo_half)
+    print(asso)
+
+
 db_size = len(database) # 4
 sup_min_freq = 2
 # Step 2. c_1 -> l_2까지는 직접 만들기
 # 모든 원소 저장하기 -> set으로 정의해서 중복 걸러주기
 all_items = set().union(*database)
 # 포함관계 확인, candidate 만들 때 bitmask 형태로 하면 최적화
-# if B contains A, (A & B) == A
 # all_item bitmaskied form.
 c_1 = [1 << item for item in all_items]
 database = db_to_bin(database)
 # if B contains A, (A & B) == A
 c_1_sup = [sum(1 for trans in database if (trans & candi) == candi) for candi in c_1]
 l_1 = {candi for candi, sup in zip(c_1, c_1_sup) if sup >= sup_min_freq}
-
-l_k = l_1
 k=1
-freq_pat = []
-freq_pat.append(l_k)
-while l_k :
-    c_k1 = make_candidates(l_k,k)
+l_k_with_sup = {candi : sup for candi, sup in zip(c_1, c_1_sup) if sup >= sup_min_freq}
+# freq_pat = []
+# freq_pat.append(l_k)
+while l_k_with_sup:
+    c_k_plus_1 = make_candidates(l_k_with_sup,k)
     k += 1
-    l_k ,l_k_sup = pruning(c_k1)
-    print(l_k)
-    # note that l_k is set but l_k_sup is list.
+    l_k_with_sup = pruning(c_k_plus_1)
+    # pruning precedure 에서 sup 까지 계산.
+    print(l_k_with_sup)
+    all_association_rules(l_k_with_sup)
