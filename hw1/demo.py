@@ -1,5 +1,5 @@
 from itertools import combinations
-database = [[0,2,3],[1,2,4],[0,1,2,4],[1,4]]
+database = [[0,2,3,5,6],[1,2,4,5,6],[0,1,2,4,5,6],[1,4,5,6]]
 sup_min = 0
 sup_min_freq = 0
 
@@ -66,15 +66,12 @@ def all_association_rules(l_k_with_sup):
         # 변환시킨 후 합쳐주기.
         # 이제 계산 끝났고, output으로 내보내야함. bitmask 해제 -> bilist_to_set 함수 재활용.
         asso.append([[bilist_to_set([itemset, asso_itemset]), fp_sup]
-                    for combos_len_t,combos_len_k_t in zip(combo_half,combo_rest) 
-                    for itemset, asso_itemset in zip(combos_len_t,combos_len_k_t) 
+                    for combos_len_t,combos_len_k_t in zip(combo_half,combo_rest)
+                    for itemset, asso_itemset in zip(combos_len_t,combos_len_k_t)
                     ])
-        # print(bilist_to_set([fp]))
-        # print(combo_half)
-        # print(combo_rest)
-        #print(bin_to_set(combo) for combo in combo_half)
+        # 근데 여기서 총 원소가 두개인 frequent pattern은 어떡함
+        # 미러링 안해도 이미 있음;
     print(asso)
-
 
 db_size = len(database) # 4
 sup_min_freq = 2
@@ -90,12 +87,30 @@ c_1_sup = [sum(1 for trans in database if (trans & candi) == candi) for candi in
 l_1 = {candi for candi, sup in zip(c_1, c_1_sup) if sup >= sup_min_freq}
 k=1
 l_k_with_sup = {candi : sup for candi, sup in zip(c_1, c_1_sup) if sup >= sup_min_freq}
-# freq_pat = []
-# freq_pat.append(l_k)
-while l_k_with_sup:
-    c_k_plus_1 = make_candidates(l_k_with_sup,k)
-    k += 1
-    l_k_with_sup = pruning(c_k_plus_1)
+
+output = []
+c_2 = make_candidates(l_k_with_sup,k)
+k+=1
+l_k_with_sup = pruning(c_2)
+for fp,fp_sup in l_k_with_sup.items():
+    bin_values = bi_to_biset(fp)
+    combo_half = [[sum(bin_value) for bin_value in combinations(bin_values,i)] for i in range(1,(len(bin_values)//2)+1)]
+    output.append([{combo_half[0][0]},{combo_half[0][1]}, fp_sup])
+
+print(output)
+
+## TODO.1 all_association_rules 함수에서 list 형식 set으로 바꿔주기.
+## TODO.2 sup 구하는 방식 frequency 말고 probability로 구하기
+## TODO.3 Confidence 까지 같이 반환하기 -> 이건 그래도 쉬울듯.
+
+# while l_k_with_sup :
+#     c_k_plus_1 = make_candidates(l_k_with_sup,k)
+#     k += 1
+#     l_k_with_sup = pruning(c_k_plus_1)
+#     all_association_rules(l_k_with_sup)
+
+    #print(l_k_with_sup)
     # pruning precedure 에서 sup 까지 계산.
-    print(l_k_with_sup)
-    all_association_rules(l_k_with_sup)
+
+
+
