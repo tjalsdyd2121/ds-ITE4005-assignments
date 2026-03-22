@@ -1,5 +1,6 @@
 from itertools import combinations
 database = [[0,2,3,5,6],[1,2,4,5,6],[0,1,2,4,5,6],[1,4,5,6]]
+db_size = len(database) # 4
 sup_min = 0
 sup_min_freq = 0
 
@@ -75,8 +76,8 @@ def all_association_rules(l_k_with_sup):
         # item을 총 t[up to k//2 -1] 개 를 가지는 combo들을 combo_half에 저장,k-t개를 가지는 combo들을 combo_rest에 저장.
         # 변환시킨 후 합쳐주기.
         # 이제 계산 끝났고, output에 넣어줘야함. bitmask 해제 -> bilist_to_set 함수 재활용.
-        asso_rule_k.append([[[bilist_to_set([itemset, asso_itemset]), fp_sup],
-                             [bilist_to_set([asso_itemset, itemset]), fp_sup]
+        asso_rule_k.append([[[bilist_to_set([itemset, asso_itemset]), fp_sup / db_size, conf(itemset,asso_itemset)],
+                             [bilist_to_set([asso_itemset, itemset]), fp_sup / db_size, conf(itemset,asso_itemset)]
                              ]
             for combos_len_t,combos_len_k_t in zip(combo_half,combo_rest)
             for itemset, asso_itemset in zip(combos_len_t,combos_len_k_t)
@@ -89,6 +90,14 @@ def all_association_rules(l_k_with_sup):
 
         # p.s. 그냥 이부분은 bitwise 말고 set으로 변환해서 연산 사용할 걸 그랬다... 괜히 끝까지 bitwise고집했다
     return asso_rule_k
+
+def conf(itemset, asso_itemset):
+    def sub_db(db, itemset):
+    # itemset이 포함된 trans 만 db에 남겨 반환.
+    # here, db and itemset are also bitmasked values.
+        return [x for x in db if (x & itemset) == itemset]
+    itemset_db = sub_db(database,itemset)
+    return len(sub_db(itemset_db,asso_itemset)) / len(itemset_db)
 
 db_size = len(database) # 4
 sup_min_freq = 2
@@ -128,6 +137,5 @@ while l_k_with_sup :
 print(output)
     #print(l_k_with_sup)
     # pruning precedure 에서 sup 까지 계산.
-
 
 
