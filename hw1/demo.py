@@ -47,31 +47,48 @@ def pruning(c_k):
 
 
 def all_association_rules(l_k_with_sup):
-    asso = []
+    asso_rule_k = []
     for fp,fp_sup in l_k_with_sup.items():
         # bin_values 는 bitmasked value(합)를 binary values(리스트)로 분리. e.g. 18 -> [2,16]
         bin_values = bi_to_biset(fp)
-        # combo는 하나의 frequent pattern에서 나올 수 있는 모든 조합의 절반
-        # e.g. 21 -> 1+4+16 이니 combo for 21 = [{1,4,16},{5,17,20}]
-        # set의 개념으로 봤을 때, combo for 21 = [[{0},{2},{4}],[{0,2},{0,4},{2,4}]]
-        combo_half = [[sum(bin_value) for bin_value in combinations(bin_values,i)] for i in range(1,(len(bin_values)//2)+1)]
+        # combo_half는 하나의 frequent pattern에서 나올 수 있는 중앙을 제외한 모든 조합의 절반까지 계산.
+        # e.g. 15 -> 1+2+4+8 이니 combo_half for 15 = [[1,2,4,16]]
+        # set의 개념으로 봤을 때, combo_half for 15 = [[{0},{1},{2},{3}]]
+        combo_half = [[sum(bin_value) for bin_value in combinations(bin_values,i)] for i in range(1,(len(bin_values)-1)//2+1)]
+        if not k%2 :
+            #k가 짝수면... 
+            middle = [sum(bin_value) for bin_value in combinations(bin_values, k//2)]
+            #e.g.set 형태의 middle = [{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}]
+            # combination의 symmetric한 성질을 이용하자.
+            combo_half.append(middle[:k//2])
+            #e.g.set 형태의 middle = [{0,1},{0,2},{0,3}]
+        # set의 개념으로 봤을 때, combo_half for 15 = [[{0},{1},{2},{3}],[{0,1},{0,2},{0,3}]]
+        # 이제 미러링만 해주면 됨!
         # set 에서 - 연산을 bitmask로 구현하려면
         # e.g. 1111 - 1110 =  0001 -> 15 - 14 = 1
         # 즉, A ^ B = A - B
         # [우리는 A가 B를 포함한다는 사실을 알고 있기에 XOR로 연산해줘도 됨.]
+        # Then e.g. combo_rest = [[{1,2,3},{0,2,3},{0,1,3},{0,1,2}],[{2,3},{1,3},{1,2}]]
         combo_rest = [[itemset ^ fp for itemset in combo] for combo in combo_half]
         # bi_to_set 함수를 통해서 bitmask 형태 -> set 
         # 현재 k 길이를 가진 frequent pattern들에 대해서 각 fp 마다 모든 combo를 생성 중.
-        # item을 총 t[up to k//2] 개 를 가지는 combo들을 combo_half에 저장,k-t개를 가지는 combo들을 combo_rest에 저장.
+        # item을 총 t[up to k//2 -1] 개 를 가지는 combo들을 combo_half에 저장,k-t개를 가지는 combo들을 combo_rest에 저장.
         # 변환시킨 후 합쳐주기.
-        # 이제 계산 끝났고, output으로 내보내야함. bitmask 해제 -> bilist_to_set 함수 재활용.
-        asso.append([[bilist_to_set([itemset, asso_itemset]), fp_sup]
-                    for combos_len_t,combos_len_k_t in zip(combo_half,combo_rest)
-                    for itemset, asso_itemset in zip(combos_len_t,combos_len_k_t)
-                    ])
-        # 근데 여기서 총 원소가 두개인 frequent pattern은 어떡함
+        # 이제 계산 끝났고, output에 넣어줘야함. bitmask 해제 -> bilist_to_set 함수 재활용.
+        asso_rule_k.append([[[bilist_to_set([itemset, asso_itemset]), fp_sup],
+                             [bilist_to_set([asso_itemset, itemset]), fp_sup]
+                             ]
+            for combos_len_t,combos_len_k_t in zip(combo_half,combo_rest)
+            for itemset, asso_itemset in zip(combos_len_t,combos_len_k_t)
+            ])
+        # Trouble Shooting : 근데 여기서 총 원소가 4개 이상인 frequent pattern의 asso_rule 을 계산 할 때,
+        # 한 itemset의 총 원소 개수가 k//2 일 때 이미 미러링이 되어있음. e.g. [[{2, 4}, {1, 5}], 2], [[{1, 5}, {2, 4}], 2]
         # 미러링 안해도 이미 있음;
-    print(asso)
+        # k//2 -1까지만 구하고 미러링한 후 추가, k가 짝수 일 때는 k//2인 경우 그냥 구하고 추가.
+        # 추가적으로, k=2인 경우 빈 리스트에 대해서 연산 할 것 같으니 k=3일 때부터 반복문 반복 시작.
+
+        # p.s. 그냥 이부분은 bitwise 말고 set으로 변환해서 연산 사용할 걸 그랬다... 괜히 끝까지 bitwise고집했다
+    return asso_rule_k
 
 db_size = len(database) # 4
 sup_min_freq = 2
@@ -92,23 +109,23 @@ output = []
 c_2 = make_candidates(l_k_with_sup,k)
 k+=1
 l_k_with_sup = pruning(c_2)
-for fp,fp_sup in l_k_with_sup.items():
-    bin_values = bi_to_biset(fp)
-    combo_half = [[sum(bin_value) for bin_value in combinations(bin_values,i)] for i in range(1,(len(bin_values)//2)+1)]
-    output.append([{combo_half[0][0]},{combo_half[0][1]}, fp_sup])
-
-print(output)
+#combo_half = [[sum(bin_value) for bin_value in combinations(bi_to_biset(fp),i)] for i in range(1,(len(bi_to_biset(fp))//2)+1)]
+#print(combo_half)
+# for fp,fp_sup in l_k_with_sup.items():
+#     bin_values = bi_to_biset(fp)
+#     combo_half = [[sum(bin_value) for bin_value in combinations(bin_values,i)] for i in range(1,(len(bin_values)//2)+1)]
+#     output.append([[{combo_half[0][0]},{combo_half[0][1]}], fp_sup])
 
 ## TODO.1 all_association_rules 함수에서 list 형식 set으로 바꿔주기.
 ## TODO.2 sup 구하는 방식 frequency 말고 probability로 구하기
 ## TODO.3 Confidence 까지 같이 반환하기 -> 이건 그래도 쉬울듯.
 
-# while l_k_with_sup :
-#     c_k_plus_1 = make_candidates(l_k_with_sup,k)
-#     k += 1
-#     l_k_with_sup = pruning(c_k_plus_1)
-#     all_association_rules(l_k_with_sup)
-
+while l_k_with_sup :
+    c_k_plus_1 = make_candidates(l_k_with_sup,k)
+    k += 1
+    l_k_with_sup = pruning(c_k_plus_1)
+    output.append(all_association_rules(l_k_with_sup))
+print(output)
     #print(l_k_with_sup)
     # pruning precedure 에서 sup 까지 계산.
 
