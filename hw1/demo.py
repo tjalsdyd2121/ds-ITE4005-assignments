@@ -134,8 +134,23 @@ while l_k_with_sup :
     k += 1
     l_k_with_sup = pruning(c_k_plus_1)
     output.append(all_association_rules(l_k_with_sup))
-print(output)
-    #print(l_k_with_sup)
-    # pruning precedure 에서 sup 까지 계산.
+    if not l_k_with_sup:
+        break
+
+with open("output_demo.txt", "w", encoding="utf-8") as f:
+        # 1. k 크기별 그룹 순회
+        for k_group in output:       
+            # 2. 하나의 아이템셋에서 파생된 규칙 쌍(Pair) 순회
+            for rule_group in k_group:     
+                # 3. 개별 규칙 순회 ([[{X}, {Y}], support, confidence])
+                for rule_pair in rule_group:
+                    for rule in rule_pair:    
+                    
+                        # 구조에 맞춰 바로 변수 할당 (언패킹)
+                        (item_set, associative_item_set), support, confidence = rule
+                    
+                        # 소수점 2자리 포맷팅 및 탭 분리하여 파일에 쓰기
+                        line = f"{item_set}\t{associative_item_set}\t{support:.2f}\t{confidence:.2f}\n"
+                        f.write(line)
 
 
