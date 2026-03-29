@@ -73,6 +73,12 @@ l_2 = {15,12,13}
 l_2_list = list(l_2)
 print(l_2_list)
 l_2_sup = [2,4,3]
+
+k=[1,2,3,4,5,6]
+t=6
+z = (t//2)
+print(k[:z])
+
 #print(all_association_rules(l_2_list,l_2_sup))
 
 
