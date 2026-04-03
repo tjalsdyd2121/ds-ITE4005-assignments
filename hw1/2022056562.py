@@ -62,7 +62,8 @@ def all_association_rules(l_k_with_sup):
             middle = [sum(bin_value) for bin_value in combinations(bin_values, k//2)]
             #e.g.set 형태의 middle = [{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}]
             # combination의 symmetric한 성질을 이용하자.
-            combo_half.append(middle[:k//2])
+            #combo_half.append(middle[:k//2])
+            combo_half.append(middle[:len(middle)//2])
             #e.g.set 형태의 middle = [{0,1},{0,2},{0,3}]
         # set의 개념으로 봤을 때, combo_half for 15 = [[{0},{1},{2},{3}],[{0,1},{0,2},{0,3}]]
         # 이제 미러링만 해주면 됨!
@@ -78,7 +79,7 @@ def all_association_rules(l_k_with_sup):
         # 변환시킨 후 합쳐주기.
         # 이제 계산 끝났고, output에 넣어줘야함. bitmask 해제 -> bilist_to_set 함수 재활용.
         asso_rule_k.append([[[bilist_to_set([itemset, asso_itemset]), fp_sup / db_size * 100, conf(itemset,asso_itemset)],
-                             [bilist_to_set([asso_itemset, itemset]), fp_sup / db_size * 100, conf(itemset,asso_itemset)]
+                             [bilist_to_set([asso_itemset, itemset]), fp_sup / db_size * 100, conf(asso_itemset,itemset)]
                              ]
             for combos_len_t,combos_len_k_t in zip(combo_half,combo_rest)
             for itemset, asso_itemset in zip(combos_len_t,combos_len_k_t)
