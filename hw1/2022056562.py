@@ -103,7 +103,7 @@ for k_group in output:
         for rule_pair in rule_group:
             for rule in rule_pair:    
                 (item_set, associative_item_set), support, confidence = rule
-                line = f"{item_set}\t{associative_item_set}\t{support:.2f}\t{confidence:.2f}"
+                line = "{}\t{}\t{:.2f}\t{:.2f}".format(item_set, associative_item_set, support, confidence)
                 lines.append(line)
 with open(output_txt, "w", encoding="utf-8") as f:
     f.write('\n'.join(lines))
