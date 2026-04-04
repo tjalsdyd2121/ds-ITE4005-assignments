@@ -27,7 +27,8 @@ def  make_candidates(l_k_with_sup,k):
     possible_next_candi = {a | b for a,b in combinations(l_k_with_sup,2)}
     # 그 중 진짜 candidate들은, 길이가 k+1 인 것들.
     ###### 아니 근데 .bit_count() 써도 됨? ######
-    next_candi =[x for x in possible_next_candi if x.bit_count() == (k+1)]
+    # 걍 bin().count('1') 쓰는걸로....
+    next_candi =[x for x in possible_next_candi if bin(x).count('1') == (k+1)]
     # downward closure property로 최적화 시행.
     # 각 candidate 들에 대해서, 길이가 k인 모든 subset들이 L_k에 존재하는지 확인.
     # 하나라도 존재하지 않는다면, 그 candidate 제거.
@@ -150,14 +151,14 @@ while l_k_with_sup :
     output.append(all_association_rules(l_k_with_sup))
     if not l_k_with_sup:
         break
-
+lines = []
+for k_group in output:       
+    for rule_group in k_group:     
+        for rule_pair in rule_group:
+            for rule in rule_pair:    
+                (item_set, associative_item_set), support, confidence = rule
+                line = f"{item_set}\t{associative_item_set}\t{support:.2f}\t{confidence:.2f}"
+                lines.append(line)
 with open(output_txt, "w", encoding="utf-8") as f:
-        for k_group in output:       
-            for rule_group in k_group:     
-                for rule_pair in rule_group:
-                    for rule in rule_pair:    
-                        (item_set, associative_item_set), support, confidence = rule
-                        line = f"{item_set}\t{associative_item_set}\t{support:.2f}\t{confidence:.2f}\n"
-                        f.write(line)
-
+    f.write('\n'.join(lines))
 
