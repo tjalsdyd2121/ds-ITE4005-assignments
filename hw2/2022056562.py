@@ -31,32 +31,35 @@ class Decision_Tree:
     def __init__(self, data):
         available_attrs = list(range(len(features) - 1))
         # atrrs는 index 를 원소로 가지는 list.
-        self.root = self.Node(available_attrs, data)
+        # 루트 노드는 부모가 없으므로 parent_majority에 None 전달
+        self.root = self.Node(available_attrs, data, parent_majority=None)
         self.root.build() 
     def get_root(self):
         return self.root        
 
-    def print_tree(self, node=None, indent=""):
-        if node is None: node = self.root
-        
-        if node.leaf_label is not None:
-            print(indent + "selected label :", node.leaf_label)
-            return
-            
-        print(indent + f"[{features[node.split_attr]}] 속성에 따라 분류:")
-        for val, child in node.branch.items():
-            print(indent + f"   ├── {val}:")
-            self.print_tree(child, indent + "   │   ")
-
     class Node:
-        def __init__(self, available_attrs, data):
+        # 부모의 majority를 인자로 받음 (초기값 None)
+        def __init__(self, available_attrs, data, parent_majority=None):
             self.available_attrs = available_attrs
             self.data = data
             # 현재 노드에서 가지고 있는 data, 선택가능한 attr.
             self.branch = {}
             # dict 로 하위 branch 설정. e,g. {'high' : chlid1, 'low' : child2, 'medium' : child3 }
-            self.split_attr = None 
+            self.split_attr = None
             self.leaf_label = None
+            self.labels_in_data = [x[-1] for x in self.data] 
+            
+            # majority 계산
+            # 일단 상속 받기
+            self.majority = parent_majority  
+            
+            if self.labels_in_data:
+                # 개수가 같을 수 있으니 검사
+                counts = {l: self.labels_in_data.count(l) for l in set(self.labels_in_data)}
+                candidates = [l for l, c in counts.items() if c == max(counts.values())]
+                if len(candidates) == 1 or parent_majority is None:
+                    # 개수가 같지 않거나 root가 아니라면 계산한 값으로 업데이트.
+                    self.majority = candidates[0]
         
         def predict(self, query):
             # here, query is like ['<=30', 'high', 'no', 'fair']
@@ -69,19 +72,18 @@ class Decision_Tree:
             if query[self.split_attr] in self.branch:
                 return (self.branch[query[self.split_attr]]).predict(query)
             else : 
-                labels_in_data = [x[-1] for x in self.data]
-                return max(set(labels_in_data), key=labels_in_data.count)
+                # 미리 계산해둔 본인의 majority 반환
+                return self.majority
 
         def build(self):
-            labels_in_data = [x[-1] for x in self.data]
             # 종료 조건 1 : 모든 data의 class label 이 동일할 때
-            if len(set(labels_in_data)) == 1:
-                self.leaf_label = labels_in_data[0]
+            if len(set(self.labels_in_data)) == 1:
+                self.leaf_label = self.labels_in_data[0]
                 return
             # 종료 조건 2 : 더이상 branching이 불가능할 때.
-            # -> leaf 노드. majority voting
+            # -> leaf 노드.
             if not self.available_attrs:
-                self.leaf_label = max(set(labels_in_data), key=labels_in_data.count)
+                self.leaf_label = self.majority
                 return
 
             best_idx = self.branching()
@@ -91,13 +93,17 @@ class Decision_Tree:
             for val in possible_values[best_idx]:
                 sub_data = [x for x in self.data if x[best_idx] == val]
                 
-                child_node = Decision_Tree.Node(child_attrs, sub_data)
-                self.branch[val] = child_node
+                # majority 상속
+                child = Decision_Tree.Node(child_attrs, sub_data, self.majority)
+                self.branch[val] = child
                 
                 # 종료 조건 3 : 쪼개졌는데 이에 해당되는 data 가 없을 때
                 # -> decision 은 해야하기 때문에 현재 노드의 voting을 따르기
-                if not sub_data: child_node.leaf_label = max(set(labels_in_data), key=labels_in_data.count)
-                else: child_node.build()
+                if not sub_data: 
+                    # 즉, 현재 노드의 voting == 상속 받은 majority
+                    child.leaf_label = child.majority
+                else: 
+                    child.build()
 
         def branching(self):
             gains = {i: self.gainRatio(i) for i in self.available_attrs}
